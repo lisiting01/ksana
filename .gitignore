@@ -1,0 +1,55 @@
+# Root .gitignore for Ksana monorepo (Go service + Vite/Vue web)
+
+# --- OS / Filesystem noise ---
+.DS_Store
+Thumbs.db
+desktop.ini
+Icon?
+
+# --- Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Environment files ---
+.env
+.env.local
+.env.*.local
+
+# --- Editor / IDE ---
+.idea
+*.iml
+.history
+*.sw?
+*~
+
+# --- Node / Vite / TypeScript (any package in repo) ---
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/coverage/
+**/.eslintcache
+*.tsbuildinfo
+
+# Cypress artifacts (if used)
+**/cypress/videos/
+**/cypress/screenshots/
+
+# --- Go build artifacts ---
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Common build cache/output dirs (if created)
+bin/
+out/
+build/
+tmp/
+temp/

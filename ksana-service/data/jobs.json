@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updated_at": "2025-09-19T07:09:25.4236075Z",
+  "jobs": [
+    {
+      "id": "655f4d8b27eefe1f401c5ed837422ead",
+      "name": "test",
+      "enabled": false,
+      "type": "http",
+      "http": {
+        "method": "GET",
+        "url": "https://data-collector.youngala.com/analyzer/v1/all?page=1\u0026pageSize=3",
+        "headers": {},
+        "body": ""
+      },
+      "schedule": {
+        "kind": "every",
+        "every": "10s"
+      },
+      "timeout": "10s",
+      "max_retries": 3,
+      "retry_backoff": "5s",
+      "last_run_at": "2025-09-20T17:45:48.4895576Z",
+      "next_run_at": "2025-09-20T17:45:58.4895576Z",
+      "last_status": "success",
+      "last_error": ""
+    }
+  ]
+}

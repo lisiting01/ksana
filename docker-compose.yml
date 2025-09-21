@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  ksana-service:
+    build:
+      context: ./ksana-service
+      dockerfile: Dockerfile
+    image: ksana-service:local
+    environment:
+      - PORT=7100
+      - DATA_DIR=/data
+      - WORKERS=4
+      - DEFAULT_TIMEOUT=10s
+      - MAX_RETRIES=3
+      - RETRY_BACKOFF=5s
+      - LOG_LEVEL=info
+    volumes:
+      - ksana_data:/data
+    ports:
+      - "7100:7100"
+
+  ksana-web:
+    build:
+      context: ./ksana-web
+      dockerfile: Dockerfile
+    image: ksana-web:local
+    depends_on:
+      - ksana-service
+    ports:
+      - "7110:80"
+
+volumes:
+  ksana_data:
+    driver: local

@@ -1,0 +1,6 @@
+.git
+*.exe
+data/
+**/.DS_Store
+**/Thumbs.db
+

@@ -53,3 +53,9 @@ out/
 build/
 tmp/
 temp/
+
+# Agent Config
+CLAUDE.md
+
+# Analyze
+.VSCodeCounter/

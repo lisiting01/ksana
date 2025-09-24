@@ -1,19 +1,54 @@
-# ksana-web
+﻿# ksana-web
 
-基于 Vue 3 + Vite + Element Plus 的 ksana-service 可视化 Web 控制台（MVP v0.1）。用于通过 REST API 管理定时任务：创建、查询、更新、删除、启停、立即执行，以及基础健康检查与系统设置。
-
+基于 Vue 3 + Vite + Element Plus 的 ksana-service 可视化 Web 控制台（MVP v0.1）。通过 REST API 管理定时任务：创建、查询、更新、删除、启停、立即执行，以及健康检查与客户端设置。
 配套后端：ksana-service（默认运行在 `http://localhost:7100`）。
 
 ## 功能特性
-
 - 任务列表：展示 name、enabled、type、调度摘要、next_run_at、last_status、last_run_at，并支持名称关键字、启用状态、类型筛选
 - 任务创建/编辑：
   - HTTP 配置（方法、URL、Headers、Body）
   - 调度配置（once 指定 UTC 时间；every 指定 Go Duration，支持 start_at/jitter）
   - 执行控制（timeout、max_retries、retry_backoff）
-- 任务详情：只读信息 + 快捷操作（run-now、pause/resume、delete） + JSON 视图
+- 任务详情：只读信息 + 快捷操作（run-now、pause/resume、delete）+ JSON 视图
 - 健康检查：调用 `/health` 展示服务状态
-- 系统设置：本地保存 API 地址、语言等（localStorage 持久化）
+- 系统设置：本地保存 API 地址、API 密钥、语言等（localStorage 持久化）
+- API 鉴权：支持对受保护的 API 接口进行认证访问
+
+## 系统架构概览
+- 框架：Vue 3 + Vite + Element Plus，采用 `<script setup>` 与 Composition API
+- 状态管理：Pinia，拆分 `jobs` 与 `settings` 两个 store；settings 持久化至 localStorage
+- 路由：Vue Router 4（history 模式），提供任务、健康检查、设置等页面
+- HTTP 客户端：基于原生 `fetch` 的轻量封装，统一注入 API 基地址、鉴权头、错误处理
+- 构建：Vite 7 + TypeScript，ESLint/Prettier 统一代码风格
+
+## 页面与路由
+- `/jobs`：任务列表，支持筛选、分页、快捷操作
+- `/jobs/new`：创建任务向导
+- `/jobs/:id`：任务详情（含 JSON 视图、运行历史摘要）
+- `/jobs/:id/edit`：编辑任务
+- `/health`：健康检查面板
+- `/settings`：客户端设置（API 地址、API 密钥、语言）
+
+## 数据模型与类型
+- 与 ksana-service 的 DTO 保持一致，核心定义位于 `src/types/job.ts`
+- 时间字段使用 UTC RFC3339 字符串（如 `2025-09-20T03:00:00Z`）
+- 周期与超时字段使用 Go duration 字符串（如 `5s`、`1m30s`）并保持原样透传
+- 任务仅支持 `type = "http"`，HTTP 配置包括 method/url/headers/body
+- 前端派生字段如 `scheduleSummary`、`isPaused` 用于提升展示体验，不会反写后端
+
+## 表单与校验要点
+- `name` 必填，推荐长度 1~100；创建时默认 `enabled = true`
+- `http.url` 必须为 http/https 合法地址；headers 键值对会去除首尾空白
+- `schedule.kind` 在 once/every 之间切换时需提示用户计划会重算
+- once 任务要求 `run_at`；every 任务要求 `every`，可选 `start_at`、`jitter`
+- `timeout`、`retry_backoff`、`every/jitter` 统一校验为 Go duration 字符串
+- 表单提交失败时会展示服务端返回的字段错误，并保持用户输入
+
+## 错误处理与安全
+- `request` 层统一抛出 `ApiError`，组件捕获后通过 Element Plus `ElMessage` 展示
+- 当收到 401/403 时会自动导航到“设置”页并提示用户检查 API 密钥
+- 设置页提供“测试连接”“测试鉴权”操作校验后端可达性
+- 浏览器仅在本地存储 API 密钥；如需更安全的方式，可在部署时通过反向代理注入头部
 
 ## 目录结构
 
@@ -54,7 +89,6 @@ ksana-web/
 - 包管理：npm（或兼容工具）
 
 ## 快速开始
-
 1) 安装依赖
 
 ```bash
@@ -62,17 +96,16 @@ npm install
 ```
 
 2) 配置后端 API 地址（二选一）
-
 - 方式 A：在项目根目录创建 `.env.local`，设置变量：
 
 ```
 VITE_API_BASE_URL=http://localhost:7100
+VITE_API_KEY=your-api-key-here
 ```
 
-- 方式 B：运行后进入“设置”页面，直接在 UI 中修改 API 地址，保存后会写入浏览器 localStorage。
+- 方式 B：运行后进入“设置”页面，直接在 UI 中修改 API 地址和 API 密钥，保存后会写入浏览器 localStorage
 
 3) 本地开发
-
 ```bash
 npm run dev
 ```
@@ -80,7 +113,6 @@ npm run dev
 访问开发地址（Vite 输出的本地 URL）。首次进入会跳转到“任务列表”。
 
 4) 生产构建与预览
-
 ```bash
 npm run build
 npm run preview
@@ -100,13 +132,12 @@ npm run preview
 ## 环境变量
 
 - `VITE_API_BASE_URL`：后端 API 根地址，默认 `http://localhost:7100`
+- `VITE_API_KEY`：API 访问密钥，默认为空（可在设置页面配置）
 
-说明：应用启动时会读取该变量作为默认值，运行期也会读取并使用“设置”页面保存到 localStorage 的 `apiBase`。
+说明：应用启动时会读取这些变量作为默认值，运行期优先使用“设置”页面保存到 localStorage 的值。
 
 ## 与后端 API 的约定
-
 统一基地址：`apiBase`（由 `VITE_API_BASE_URL` 或设置页决定）。
-
 使用的接口（需与 ksana-service 对齐）：
 
 - `GET /jobs`、`POST /jobs`
@@ -115,9 +146,9 @@ npm run preview
 - `GET /health`
 
 请求/响应：
-
-- 请求默认 `Content-Type: application/json`
+- 请求默认 `Content-Type: application/json`，自动添加 API 鉴权头部
 - 失败时抛出统一 `ApiError`，组件捕获后通过 Element Plus 的 `ElMessage` 友好提示
+- 401/403 错误会自动引导用户到设置页面配置 API 密钥
 
 时间与调度：
 
@@ -125,10 +156,10 @@ npm run preview
 - 周期配置使用 Go Duration 字符串：示例 `5s`、`1m`、`1h`、`30m`、`2h30m`
 
 ## 使用指引（MVP）
-
-1) 健康检查：
-   - 打开“健康检查”页确认后端可达，状态应为 `ok`
-
+1) 健康检查与 API 密钥配置：
+   - 打开“设置”页配置 API 地址和 API 密钥
+   - 使用“测试连接”和“测试鉴权”功能确认配置正确
+   - 或打开“健康检查”页确认后端可达，`/health` 端点无需鉴权
 2) 创建任务：
    - “任务列表” → “新建任务”
    - 填写“HTTP 配置”：方法、URL（需 http/https）、可选 Headers/Body
@@ -136,18 +167,17 @@ npm run preview
      - once：填写 UTC 时间（如 `2025-09-20T03:00:00Z`）
      - every：填写周期（如 `5m`），可选 `start_at`（UTC）和 `jitter`
    - 配置“执行控制”：`timeout`（默认 10s）、`max_retries`（默认 3）、`retry_backoff`（默认 5s）
-
 3) 列表与详情：
    - 列表支持筛选、快捷操作；详情页提供 JSON 视图与更多操作
-
 4) 启停与立即执行：
    - 列表或详情页使用“更多”菜单：run-now、pause/resume、delete
 
 ## 常见问题
 
-- 无法连接后端：
-  - 确认 ksana-service 已启动并监听 `7100`
-  - 确认“设置”页或 `.env.local` 中的 `VITE_API_BASE_URL` 正确
+- 无法连接后端 / 鉴权失败：
+  - 确认 ksana-service 已启动并监听 `7100`、并已配置有效的 API 密钥文件
+  - 确认“设置”页中的 API 地址和 API 密钥配置正确
+  - 使用设置页的“测试连接”和“测试鉴权”功能进行诊断
   - 若跨域，建议通过反向代理统一域名或在后端开启 CORS
 
 - 时间格式不通过校验：
@@ -165,6 +195,7 @@ npm run preview
 
 ## 备注
 
-- 更详细的交互与类型定义可参考 `DESIGN.md`
 - 当前版本仅支持任务类型 `http`
 - 本项目不包含后端，需配合 ksana-service 使用
+- 欢迎通过 Issues/PR 讨论界面优化、国际化、多集群管理等后续需求
+

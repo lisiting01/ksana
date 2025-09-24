@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ksana-service/internal/api"
+	"ksana-service/internal/auth"
 	"ksana-service/internal/executor"
 	"ksana-service/internal/scheduler"
 	"ksana-service/internal/store"
@@ -32,6 +33,7 @@ type Config struct {
 	MaxRetries     int
 	RetryBackoff   time.Duration
 	LogLevel       string
+	AuthKeysFile   string
 }
 
 func NewService(config Config) (*Service, error) {
@@ -61,8 +63,13 @@ func NewService(config Config) (*Service, error) {
 	clock := &scheduler.RealClock{}
 	schedulerSvc := scheduler.NewScheduler(store, executor, clock, logger)
 
+	authManager, err := auth.NewManager(config.AuthKeysFile, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth manager: %w", err)
+	}
+
 	handler := api.NewJobHandler(store, schedulerSvc, logger)
-	router := api.NewRouter(handler, logger)
+	router := api.NewRouter(handler, authManager, logger)
 
 	server := &http.Server{
 		Addr:    ":" + config.Port,
@@ -133,6 +140,7 @@ func LoadConfigFromEnv() Config {
 		MaxRetries:     getEnvInt("MAX_RETRIES", 3),
 		RetryBackoff:   getEnvDuration("RETRY_BACKOFF", 5*time.Second),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		AuthKeysFile:   getEnv("AUTH_KEYS_FILE", "./config/api_keys.txt"),
 	}
 
 	return config

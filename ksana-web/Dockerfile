@@ -15,6 +15,7 @@ COPY ksana-web/ .
 
 # Build with API base set to /api for nginx proxy
 ENV VITE_API_BASE_URL=/api
+ENV VITE_API_KEY=
 RUN npm run build
 
 # 2) Runtime stage using nginx to serve static files and proxy /api

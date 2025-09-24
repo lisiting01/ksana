@@ -3,4 +3,5 @@
 data/
 **/.DS_Store
 **/Thumbs.db
-
+config/
+**/config/api_keys*.txt

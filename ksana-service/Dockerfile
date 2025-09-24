@@ -27,8 +27,8 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -H -u 10001 appuser
 
-# Create data dir (can be mounted as a volume)
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+# Create data and config dirs (can be mounted as volumes)
+RUN mkdir -p /app/data /app/config && chown -R appuser:appuser /app
 
 COPY --from=builder /out/ksana-service /app/ksana-service
 
@@ -41,7 +41,8 @@ ENV PORT=7100 \
     DEFAULT_TIMEOUT=10s \
     MAX_RETRIES=3 \
     RETRY_BACKOFF=5s \
-    LOG_LEVEL=info
+    LOG_LEVEL=info \
+    AUTH_KEYS_FILE=/app/config/api_keys.txt
 
 EXPOSE 7100
 

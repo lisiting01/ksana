@@ -1,16 +1,19 @@
 package api
 
 import (
+	"ksana-service/internal/auth"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 )
 
-func NewRouter(handler *JobHandler, logger *slog.Logger) http.Handler {
+func NewRouter(handler *JobHandler, authManager *auth.Manager, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/jobs", func(w http.ResponseWriter, r *http.Request) {
+	authMiddleware := apiKeyMiddleware(authManager, logger)
+
+	mux.HandleFunc("/jobs", authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			handler.CreateJob(w, r)
@@ -19,9 +22,9 @@ func NewRouter(handler *JobHandler, logger *slog.Logger) http.Handler {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}))
 
-	mux.HandleFunc("/jobs/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/jobs/", authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/jobs/")
 		parts := strings.Split(path, "/")
 
@@ -54,7 +57,7 @@ func NewRouter(handler *JobHandler, logger *slog.Logger) http.Handler {
 		}
 
 		http.Error(w, "Not found", http.StatusNotFound)
-	})
+	}))
 
 	mux.HandleFunc("/health", handler.Health)
 
@@ -95,7 +98,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		// 设置 CORS 头
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		w.Header().Set("Access-Control-Max-Age", "86400") // 24小时
 
 		// 处理预检请求
@@ -107,4 +110,59 @@ func corsMiddleware(next http.Handler) http.Handler {
 		// 继续处理其他请求
 		next.ServeHTTP(w, r)
 	})
+}
+
+func apiKeyMiddleware(authManager *auth.Manager, logger *slog.Logger) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var apiKey string
+
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" {
+				const prefix = "ApiKey "
+				if strings.HasPrefix(authHeader, prefix) {
+					apiKey = strings.TrimPrefix(authHeader, prefix)
+				}
+			}
+
+			if apiKey == "" {
+				apiKey = r.Header.Get("X-API-Key")
+			}
+
+			if apiKey == "" {
+				logger.Warn("API key authentication failed: missing key",
+					"client_ip", getClientIP(r),
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				w.Header().Set("WWW-Authenticate", "ApiKey")
+				http.Error(w, "Authentication required", http.StatusUnauthorized)
+				return
+			}
+
+			if !authManager.Validate(apiKey) {
+				logger.Warn("API key authentication failed: invalid key",
+					"client_ip", getClientIP(r),
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				w.Header().Set("WWW-Authenticate", "ApiKey")
+				http.Error(w, "Invalid API key", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func getClientIP(r *http.Request) string {
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.Header.Get("X-Real-IP")
+	}
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	return ip
 }

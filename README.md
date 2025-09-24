@@ -1,16 +1,14 @@
-# 项目说明
+﻿# 项目说明
 
-Ksana 是一个轻量级的定时调度系统，由后端服务 `ksana-service` 与前端控制台 `ksana-web` 组成：
+Ksana 是一个轻量级的定时调度系统，由后端服务 `ksana-service` 与前端控制台 `ksana-web` 组成。
 
-- ksana-service：Go 实现的调度与执行核心，提供 REST API、任务持久化与重试机制。
-- ksana-web：基于 Vue 3 + Vite + Element Plus 的 Web 控制台（已实现），用于可视化管理任务、健康检查和系统设置。
+- ksana-service：Go 实现的调度与执行核心，提供 REST API、任务持久化与重试机制，并支持 API 密钥鉴权。
+- ksana-web：基于 Vue 3 + Vite + Element Plus 的 Web 控制台，用于可视化管理任务、健康检查和客户端配置，内置 API 密钥管理与测试工具。
 
 更多细节：
 - `ksana-service/README.md`：服务端使用与配置
 - `ksana-service/EXAMPLES.md`：完整 API 示例（curl）
-- `ksana-service/DESIGN.md`：服务端设计与架构
 - `ksana-web/README.md`：前端功能与使用说明
-- `ksana-web/DESIGN.md`：前端设计文档
 
 ## 项目结构
 
@@ -29,7 +27,13 @@ Ksana 是一个轻量级的定时调度系统，由后端服务 `ksana-service` 
 ```bash
 cd ksana-service
 go build -o ksana-service .
-./ksana-service    # Windows 下运行 ksana-service.exe
+
+# 准备 API 密钥文件
+mkdir -p config
+echo "your-api-key-here" > config/api_keys.txt
+
+# 启动服务（可通过 AUTH_KEYS_FILE 定位密钥文件）
+AUTH_KEYS_FILE=./config/api_keys.txt ./ksana-service    # Windows 下运行 .\ksana-service.exe
 ```
 
 健康检查：`GET http://localhost:7100/health`
@@ -40,20 +44,22 @@ go build -o ksana-service .
 cd ksana-web
 npm install
 
-# 可选：设置后端 API 地址（默认 http://localhost:7100）
+# 可选：设置默认后端地址与 API 密钥
 # 在项目根目录创建 .env.local 并写入：
 # VITE_API_BASE_URL=http://localhost:7100
+# VITE_API_KEY=your-api-key-here
 
 npm run dev
 ```
 
-在浏览器打开 Vite 输出的本地地址，进入“健康检查”页面确认服务状态为 ok。
+首次进入“设置”页面可测试后端连通性与密钥是否生效。
 
 3) 创建一个周期任务示例（每 5 分钟执行一次 GET 请求）
 
 ```bash
 curl -X POST http://localhost:7100/jobs \
   -H "Content-Type: application/json" \
+  -H "Authorization: ApiKey your-api-key-here" \
   -d '{
     "name": "ping-example",
     "enabled": true,
@@ -66,7 +72,7 @@ curl -X POST http://localhost:7100/jobs \
   }'
 ```
 
-也可在 `ksana-web` 的“新建任务”页面可视化创建。
+也可以在 `ksana-web` 的“新建任务”页面可视化创建。
 
 ## 运行配置（服务端环境变量）
 
@@ -78,13 +84,22 @@ curl -X POST http://localhost:7100/jobs \
 - `MAX_RETRIES`：失败最大重试次数（`3`）
 - `RETRY_BACKOFF`：固定退避时长（`5s`）
 - `LOG_LEVEL`：日志级别（`info`，可选 `debug|info|warn|error`）
+- `AUTH_KEYS_FILE`：API 密钥文件路径（`./config/api_keys.txt`）
 
 数据默认持久化到 `ksana-service/data/jobs.json`（自动创建，JSON 原子写入）。
 
 ## 前端配置（环境变量）
 
-- `VITE_API_BASE_URL`：后端 API 根地址，默认 `http://localhost:7100`。
-- 运行期也可在“设置”页面修改 API 地址，保存到浏览器 localStorage。
+- `VITE_API_BASE_URL`：后端 API 根地址，默认 `http://localhost:7100`
+- `VITE_API_KEY`：API 访问密钥，默认空值（可在设置页面配置）
+
+说明：应用启动时读取上述变量作为默认值，运行期以“设置”页面保存到 localStorage 的配置为准。
+
+## 鉴权约定
+
+- 除 `/health` 外的所有服务端接口均需携带有效 API 密钥
+- 支持两种请求头：`Authorization: ApiKey <key>` 或 `X-API-Key: <key>`
+- 前端会在请求层自动注入密钥，并在 401/403 时引导用户重新配置
 
 ## API 概览（服务端）
 
@@ -106,22 +121,20 @@ curl -X POST http://localhost:7100/jobs \
 - 任务表单：HTTP 配置、调度（once/every）、执行控制（超时/重试）
 - 任务详情：只读信息、JSON 视图、操作菜单
 - 健康检查：显示后端状态
-- 系统设置：API 地址与语言（本地持久化）
-
-更多内容见 `ksana-web/README.md` 与 `ksana-web/DESIGN.md`。
+- 系统设置：API 地址与 API 密钥（本地持久化），提供连通性与鉴权测试
 
 ## 开发与要求
 
 - Go 版本：见 `ksana-service/go.mod`
-- Node 版本：见 `ksana-web/package.json` 的 engines（建议 Node 20.19+ 或 22.12+）
+- Node 版本：见 `ksana-web/package.json` 中 engines（建议 Node 20.19+ 或 22.12+）
 - 时间处理：统一使用 UTC；`every`/`timeout`/`retry_backoff` 使用 Go Duration（如 `5s`、`1m30s`）
 
 ## 路线图（Roadmap）
 
-- 鉴权与访问控制（API Token 等）
 - 更多调度类型（如 Cron 表达式）
 - 执行历史与日志流、指标与可观测性
+- 更丰富的告警与通知渠道
 
 ## AI 声明
 
-本项目的绝大部分实现由 AI 辅助生成，项目动机之一是探索“与多个 AI 协同工作”的模式与流程；作者主要负责功能/架构设计与人工审阅。详情见 `AI_STATEMENT.md`。
+本项目的绝大部分实现由 AI 辅助生成，项目动机之一是探索“与多个 AI 协同工作”的模式与流程；作者主要负责功能规划、架构设计与人工审阅。详情见 `AI_STATEMENT.md`。

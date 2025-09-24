@@ -2,11 +2,28 @@
 
 默认监听端口：7100（HTTP）。以下示例均以 `http://localhost:7100` 为前缀。
 
+**注意：除 `/health` 端点外，所有API请求都需要提供API密钥进行鉴权。**
+
+### 鉴权方式
+
+支持两种方式提供API密钥：
+
+1. **Authorization 头部**（推荐）:
+```bash
+curl -H "Authorization: ApiKey your-api-key-here" ...
+```
+
+2. **X-API-Key 头部**:
+```bash
+curl -H "X-API-Key: your-api-key-here" ...
+```
+
 ## 一、管理 API 调用示例
 
 - 创建周期任务（every，间隔 5 分钟）
 ```
 curl -X POST http://localhost:7100/jobs \
+  -H "Authorization: ApiKey your-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "ping-example",
@@ -28,6 +45,7 @@ curl -X POST http://localhost:7100/jobs \
 - 创建一次性任务（once，指定 UTC 触发时间）
 ```
 curl -X POST http://localhost:7100/jobs \
+  -H "Authorization: ApiKey your-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "once-notify",
@@ -48,37 +66,44 @@ curl -X POST http://localhost:7100/jobs \
 
 - 列出任务
 ```
-curl http://localhost:7100/jobs
+curl -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs
 ```
 
 - 查看任务详情
 ```
-curl http://localhost:7100/jobs/<job_id>
+curl -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs/<job_id>
 ```
 
 - 更新任务（部分字段）
 ```
 curl -X PATCH http://localhost:7100/jobs/<job_id> \
+  -H "Authorization: ApiKey your-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
 ```
 
 - 立即执行一次（不影响周期）
 ```
-curl -X POST http://localhost:7100/jobs/<job_id>/run-now
+curl -X POST -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs/<job_id>/run-now
 ```
 
 - 暂停/恢复
 ```
 # 暂停
-curl -X POST http://localhost:7100/jobs/<job_id>/pause
+curl -X POST -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs/<job_id>/pause
 # 恢复
-curl -X POST http://localhost:7100/jobs/<job_id>/resume
+curl -X POST -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs/<job_id>/resume
 ```
 
 - 删除任务
 ```
-curl -X DELETE http://localhost:7100/jobs/<job_id>
+curl -X DELETE -H "Authorization: ApiKey your-api-key-here" \
+  http://localhost:7100/jobs/<job_id>
 ```
 
 - 健康检查
@@ -131,7 +156,7 @@ X-Ksana-Run-Id: 5f2a7b7c1a1b4f0e9c0d1e2f3a4b5c6d
 ## 三、常见问题
 
 - 服务是否有鉴权？
-  - 当前版本无鉴权，建议仅在内网或受控环境使用，或通过上游网关控制访问。
+  - 支持基于API密钥的鉴权机制。在 `AUTH_KEYS_FILE` 文件中配置有效的API密钥，所有API请求（除 `/health` 外）都需要提供有效密钥。如果不配置密钥文件，服务启动时会记录警告信息，此时所有鉴权请求都会被拒绝。
 - 宕机重启如何处理？
   - 周期任务（every）重启后直接滚动到下一次，不补偿历史多次；一次性任务（once）若过期则标记为 missed。
 - 如何设置并发与超时？

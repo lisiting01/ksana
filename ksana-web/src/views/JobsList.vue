@@ -142,6 +142,7 @@ import { ArrowDown } from '@element-plus/icons-vue'
 import { useJobsStore } from '@/stores/jobs'
 import { getScheduleSummary } from '@/utils/schedule'
 import { formatUTCTime, getLocalTimeTooltip } from '@/utils/time'
+import { handleAuthError } from '@/utils/auth'
 import type { JobResponse } from '@/types/job'
 
 const router = useRouter()
@@ -197,7 +198,9 @@ const refresh = async () => {
   try {
     await jobsStore.fetchAll()
   } catch (error) {
-    console.error('获取任务列表失败:', error)
+    if (!handleAuthError(error, router)) {
+      console.error('获取任务列表失败:', error)
+    }
   }
 }
 
@@ -210,29 +213,35 @@ const editJob = (id: string) => {
 }
 
 const handleAction = async (command: string, job: JobResponse) => {
-  switch (command) {
-    case 'run-now':
-      await jobsStore.runNow(job.id)
-      await refresh()
-      break
-    case 'pause':
-      await jobsStore.pause(job.id)
-      break
-    case 'resume':
-      await jobsStore.resume(job.id)
-      break
-    case 'delete':
-      await ElMessageBox.confirm(
-        `确定要删除任务 "${job.name}" 吗？`,
-        '确认删除',
-        {
-          confirmButtonText: '删除',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      )
-      await jobsStore.remove(job.id)
-      break
+  try {
+    switch (command) {
+      case 'run-now':
+        await jobsStore.runNow(job.id)
+        await refresh()
+        break
+      case 'pause':
+        await jobsStore.pause(job.id)
+        break
+      case 'resume':
+        await jobsStore.resume(job.id)
+        break
+      case 'delete':
+        await ElMessageBox.confirm(
+          `确定要删除任务 "${job.name}" 吗？`,
+          '确认删除',
+          {
+            confirmButtonText: '删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        await jobsStore.remove(job.id)
+        break
+    }
+  } catch (error) {
+    if (!handleAuthError(error, router)) {
+      console.error('操作失败:', error)
+    }
   }
 }
 

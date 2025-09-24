@@ -2,8 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 export const useSettingsStore = defineStore('settings', () => {
-  const apiBase = ref(localStorage.getItem('apiBase') || 'http://localhost:7100')
+  const apiBase = ref(localStorage.getItem('apiBase') || import.meta.env.VITE_API_BASE_URL || 'http://localhost:7100')
   const locale = ref(localStorage.getItem('locale') || 'zh-CN')
+  const apiKey = ref(localStorage.getItem('apiKey') || import.meta.env.VITE_API_KEY || '')
 
   watch(apiBase, (newValue) => {
     localStorage.setItem('apiBase', newValue)
@@ -11,6 +12,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   watch(locale, (newValue) => {
     localStorage.setItem('locale', newValue)
+  })
+
+  watch(apiKey, (newValue) => {
+    localStorage.setItem('apiKey', newValue)
   })
 
   const updateApiBase = (url: string) => {
@@ -21,10 +26,21 @@ export const useSettingsStore = defineStore('settings', () => {
     locale.value = lang
   }
 
+  const updateApiKey = (key: string) => {
+    apiKey.value = key
+  }
+
+  const clearApiKey = () => {
+    apiKey.value = ''
+  }
+
   return {
     apiBase,
     locale,
+    apiKey,
     updateApiBase,
-    updateLocale
+    updateLocale,
+    updateApiKey,
+    clearApiKey
   }
 })

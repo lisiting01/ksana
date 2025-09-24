@@ -28,9 +28,45 @@
           </div>
         </el-form-item>
 
+        <el-form-item
+          label="API 密钥"
+          prop="apiKey"
+        >
+          <el-input
+            v-model="form.apiKey"
+            :type="showApiKey ? 'text' : 'password'"
+            placeholder="请输入API密钥"
+            clearable
+          >
+            <template #append>
+              <el-button
+                @click="showApiKey = !showApiKey"
+                :icon="showApiKey ? 'View' : 'Hide'"
+                text
+                style="width: 40px;"
+              />
+            </template>
+          </el-input>
+          <div class="help-text">
+            API访问密钥，用于访问受保护的API接口。密钥将以明文形式存储在浏览器本地存储中。
+            <el-button
+              type="danger"
+              text
+              size="small"
+              @click="clearApiKey"
+              style="margin-left: 8px;"
+            >
+              清空密钥
+            </el-button>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" @click="testConnection" :loading="testing">
             测试连接
+          </el-button>
+          <el-button @click="testAuth" :loading="testingAuth" v-if="form.apiKey">
+            测试鉴权
           </el-button>
           <span v-if="connectionStatus" class="connection-status">
             <el-icon :class="connectionStatus.success ? 'success' : 'error'">
@@ -39,6 +75,15 @@
             {{ connectionStatus.message }}
           </span>
         </el-form-item>
+
+        <el-alert
+          v-if="authStatus"
+          :type="authStatus.success ? 'success' : 'error'"
+          :title="authStatus.message"
+          show-icon
+          :closable="false"
+          style="margin-top: 12px;"
+        />
       </el-card>
 
       <el-card header="界面配置" style="margin-bottom: 20px">
@@ -98,10 +143,19 @@ const testing = ref(false)
 
 const form = reactive({
   apiBase: '',
-  locale: ''
+  locale: '',
+  apiKey: ''
 })
 
+const showApiKey = ref(false)
+const testingAuth = ref(false)
+
 const connectionStatus = ref<{
+  success: boolean
+  message: string
+} | null>(null)
+
+const authStatus = ref<{
   success: boolean
   message: string
 } | null>(null)
@@ -140,17 +194,15 @@ const testConnection = async () => {
   try {
     testing.value = true
     connectionStatus.value = null
+    authStatus.value = null
 
-    const response = await request<{ status: string }>('/health', {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    const response = await fetch(`${form.apiBase}/health`)
+    const data = await response.json()
 
-    if (response.status === 'ok') {
+    if (response.ok && data.status === 'ok') {
       connectionStatus.value = {
         success: true,
-        message: '连接成功'
+        message: '连接成功（/health 端点无需鉴权）'
       }
     } else {
       connectionStatus.value = {
@@ -168,6 +220,59 @@ const testConnection = async () => {
   }
 }
 
+const testAuth = async () => {
+  if (!form.apiBase || !form.apiKey) {
+    ElMessage.warning('请先输入 API 地址和密钥')
+    return
+  }
+
+  try {
+    testingAuth.value = true
+    authStatus.value = null
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `ApiKey ${form.apiKey}`,
+      'X-API-Key': form.apiKey
+    }
+
+    const response = await fetch(`${form.apiBase}/jobs`, {
+      method: 'GET',
+      headers
+    })
+
+    if (response.ok) {
+      authStatus.value = {
+        success: true,
+        message: '鉴权成功，API密钥有效'
+      }
+    } else if (response.status === 401 || response.status === 403) {
+      authStatus.value = {
+        success: false,
+        message: '鉴权失败，API密钥无效或已过期'
+      }
+    } else {
+      authStatus.value = {
+        success: false,
+        message: `鉴权测试失败: ${response.status} ${response.statusText}`
+      }
+    }
+  } catch (error) {
+    authStatus.value = {
+      success: false,
+      message: error instanceof Error ? error.message : '鉴权测试失败'
+    }
+  } finally {
+    testingAuth.value = false
+  }
+}
+
+const clearApiKey = () => {
+  form.apiKey = ''
+  authStatus.value = null
+  ElMessage.success('密钥已清空')
+}
+
 const saveSettings = async () => {
   if (!formRef.value) return
 
@@ -176,6 +281,7 @@ const saveSettings = async () => {
 
     settingsStore.updateApiBase(form.apiBase)
     settingsStore.updateLocale(form.locale)
+    settingsStore.updateApiKey(form.apiKey)
 
     ElMessage.success('设置保存成功')
 
@@ -191,12 +297,15 @@ const saveSettings = async () => {
 const resetSettings = () => {
   form.apiBase = 'http://localhost:7100'
   form.locale = 'zh-CN'
+  form.apiKey = ''
   connectionStatus.value = null
+  authStatus.value = null
 }
 
 const loadSettings = () => {
   form.apiBase = settingsStore.apiBase
   form.locale = settingsStore.locale
+  form.apiKey = settingsStore.apiKey
 }
 
 onMounted(() => {

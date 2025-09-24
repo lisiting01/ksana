@@ -1,3 +1,5 @@
+import { useSettingsStore } from '@/stores/settings'
+
 export const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7100'
 
 export class ApiError extends Error {
@@ -12,11 +14,19 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiBase}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers || {})
-    },
+  const settingsStore = useSettingsStore()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers || {})
+  }
+
+  if (settingsStore.apiKey) {
+    headers['Authorization'] = `ApiKey ${settingsStore.apiKey}`
+    headers['X-API-Key'] = settingsStore.apiKey
+  }
+
+  const res = await fetch(`${settingsStore.apiBase}${path}`, {
+    headers,
     ...init,
   })
 
@@ -24,7 +34,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const data = text ? JSON.parse(text) : undefined
 
   if (!res.ok) {
-    const errorMessage = (data && (data.message || data.error)) || res.statusText
+    let errorMessage = (data && (data.message || data.error)) || res.statusText
+
+    if (res.status === 401 || res.status === 403) {
+      errorMessage = `未授权访问：${errorMessage}。请检查API密钥配置。`
+    }
+
     throw new ApiError(errorMessage, res.status, res.statusText)
   }
 

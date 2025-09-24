@@ -59,3 +59,8 @@ CLAUDE.md
 
 # Analyze
 .VSCodeCounter/
+
+# --- Local secrets / API keys ---
+config/
+**/config/api_keys*.txt
+ksana-service/config/

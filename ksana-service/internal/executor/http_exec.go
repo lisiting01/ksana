@@ -119,7 +119,7 @@ func (e *HTTPExecutor) executeHTTPRequest(ctx context.Context, job *model.Job, r
 
 	req.Header.Set("X-Ksana-Run-Id", runID)
 
-	if job.HTTP.Method == "POST" && req.Header.Get("Content-Type") == "" {
+	if (job.HTTP.Method == "POST" || job.HTTP.Method == "DELETE") && req.Header.Get("Content-Type") == "" {
 		if job.HTTP.Body != "" && (strings.HasPrefix(strings.TrimSpace(job.HTTP.Body), "{") || strings.HasPrefix(strings.TrimSpace(job.HTTP.Body), "[")) {
 			req.Header.Set("Content-Type", "application/json")
 		} else {

@@ -51,7 +51,7 @@
           <el-card header="HTTP 配置" style="margin-bottom: 20px">
             <el-descriptions :column="1" border>
               <el-descriptions-item label="请求方法">
-                <el-tag :type="job.http.method === 'GET' ? 'success' : 'primary'">
+                <el-tag :type="job.http.method === 'GET' ? 'success' : job.http.method === 'DELETE' ? 'danger' : 'primary'">
                   {{ job.http.method }}
                 </el-tag>
               </el-descriptions-item>

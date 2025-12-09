@@ -45,8 +45,8 @@ func (h *HTTPConfig) Validate() error {
 	}
 
 	method := strings.ToUpper(h.Method)
-	if method != HTTPMethodGET && method != HTTPMethodPOST {
-		return errors.New("HTTP method must be GET or POST")
+	if method != HTTPMethodGET && method != HTTPMethodPOST && method != HTTPMethodDELETE {
+		return errors.New("HTTP method must be GET, POST or DELETE")
 	}
 
 	if h.URL == "" {

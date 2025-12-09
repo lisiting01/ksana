@@ -9,6 +9,7 @@
       <el-select v-model="localConfig.method" placeholder="选择请求方法">
         <el-option label="GET" value="GET" />
         <el-option label="POST" value="POST" />
+        <el-option label="DELETE" value="DELETE" />
       </el-select>
     </el-form-item>
 
@@ -61,7 +62,7 @@
       </div>
     </el-form-item>
 
-    <el-form-item label="请求体" v-if="localConfig.method === 'POST'">
+    <el-form-item label="请求体" v-if="localConfig.method === 'POST' || localConfig.method === 'DELETE'">
       <el-input
         v-model="localConfig.body"
         type="textarea"
@@ -69,7 +70,7 @@
         placeholder="请求体内容，通常为 JSON 格式"
       />
       <div class="help-text">
-        对于 POST 请求，可以在这里输入请求体内容。如果是 JSON 格式，请确保语法正确。
+        可以在这里输入请求体内容。如果是 JSON 格式，请确保语法正确。
       </div>
     </el-form-item>
   </div>

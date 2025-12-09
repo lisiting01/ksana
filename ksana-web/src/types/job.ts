@@ -3,7 +3,7 @@ export type UUID = string
 export interface DurationString extends String {}
 
 export interface HTTPConfig {
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'DELETE'
   url: string
   headers: Record<string, string>
   body: string

@@ -60,6 +60,7 @@ const (
 )
 
 const (
-	HTTPMethodGET  = "GET"
-	HTTPMethodPOST = "POST"
+	HTTPMethodGET    = "GET"
+	HTTPMethodPOST   = "POST"
+	HTTPMethodDELETE = "DELETE"
 )
